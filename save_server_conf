@@ -1,0 +1,10 @@
+#!/bin/bash
+cd /backup/server-conf
+mkdir `date +%Y-%m-%d`
+cd `date +%Y-%m-%d`
+tar -zpcf etc.tgz /etc
+tar -zpcf usr_local.tgz /usr/local
+
+# Debian
+dpkg --get-selections > packages.install
+dpkg-query -l > packages.list
