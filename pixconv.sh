@@ -12,14 +12,19 @@ do
   echo "========= PROCESSING $dir =============="
   pwd
 
+# Remove empty files
+find . -size 0 -print -delete
+
+# Remove date from start of file name
+find . -name '[[:digit:]]*' -type f -exec rename 's:^(.*/)\d+-\d+([^/]*)\z:\1\2:s' {} + 2> /dev/null
+rename -- 's/^-//' *
+rename -- 's/^-//' *
+
 # Remove spaces from filename
-for f in *\ *; do mv "$f" "${f// /-}"; done
-for f in *\)*; do mv "$f" "${f//\)/}"; done
-for f in *\(*; do mv "$f" "${f//\(/-}"; done
-for f in *\'*; do mv "$f" "${f//\'/}"; done
+for f in *; do mv "$f" $(echo $f | sed -e 's/[^A-Za-z0-9._-]/-/g') 2> /dev/null; done
 
 # Get creation date and add it to filename
-for i in $(find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|avi|mpg|mpeg|vro)$" -not -empty -printf "%f\n"); do
+for i in $(find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|avi|mpg|mpeg|wmv|vro)$" -not -empty -printf "%f\n"); do
     mydate="$(exiftool -S -n -time:FileModifyDate -d %Y-%m-%d $i | cut -d' ' -f2 | cut -d':' -f1,2 --output-delimiter='-')"
     if [ "$mydate" ]; then
         mv -f $i "$mydate-$i"
@@ -29,11 +34,11 @@ done
 # Convert videos
 mkdir res
 find . -maxdepth 1 -type f -iname '*.mp4' -not -empty |
-    parallel -j14 "ffmpeg -y -analyzeduration 10000000 -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac 'res/{.}.mp4' || exit 1 && rm '{}'"
+    parallel -j14 "ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac 'res/{.}.mp4' || exit 1 && rm '{}'"
 mv -f res/* ./
 rm -rf res
-find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|avi|mpg|mpeg|vro)$" -not -empty |
-    parallel -j14 "ffmpeg -y -analyzeduration 10000000 -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac -f mp4 '{.}.mp4' || exit 1 && rm '{}'"
+find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|avi|mpg|mpeg|wmv|vro)$" -not -empty |
+    parallel -j14 "ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac -f mp4 '{.}.mp4' || exit 1 && rm '{}'"
 
 # Rescale pix
 mv -f *.jpeg *.jpg
