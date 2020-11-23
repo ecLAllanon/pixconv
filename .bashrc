@@ -20,4 +20,4 @@ alias chwww='chown -R www-data:www-data'
 alias clr='echo > /opt/logs/access.log && echo > /opt/logs/error.log'
 alias del0='find . -size 0 -print -delete'
 alias mvsub='find . -type f -mindepth 2 -exec mv -f -- {} . \;'
-
+alias scr='screen -dR torr'

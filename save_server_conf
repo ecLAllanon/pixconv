@@ -2,9 +2,11 @@
 cd /backup/server-conf
 mkdir `date +%Y-%m-%d`
 cd `date +%Y-%m-%d`
-tar -zpcf etc.tgz /etc
-tar -zpcf usr_local.tgz /usr/local
+tar -zvpcf etc.tgz /etc
+tar -zvpcf usr_local.tgz /usr/local
+tar -zvpcf opt_www.tgz --exclude='*.zip' --exclude='*.mp4' --exclude='*.jpg' --exclude='*.flv' /opt/www
 
 # Debian
 dpkg --get-selections > packages.install
 dpkg-query -l > packages.list
+
