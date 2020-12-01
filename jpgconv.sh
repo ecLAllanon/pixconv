@@ -19,7 +19,7 @@ for f in *\ *; do mv "$f" "${f// /-}"; done
 # Rescale pix
 mkdir res
 find . -maxdepth 1 -type f -iname '*.jpg' -not -empty |
-    parallel -j14 "ffmpeg -y -i '{}' -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' 'res/{.}.jpg' || exit 1 && rm '{}'"
+    parallel -j14 "ffmpeg -y -i '{}' -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' 'res/{.}.jpg' || exit 1 && touch -r '{}' 'res/{.}.jpg' && rm '{}'"
 mv -f res/* ./
 rm -rf res
 

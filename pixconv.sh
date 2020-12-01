@@ -58,17 +58,17 @@ done
 # Convert videos
 mkdir -p res
 find . -maxdepth 1 -type f -iname '*.mp4' -not -empty |
-    parallel -j14 "ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac 'res/{.}.mp4' || exit 1 && rm '{}' && echo '========= PROCESSING $dir =============='"
+    parallel -j14 "ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac 'res/{.}.mp4' || exit 1 && touch -r '{}' 'res/{.}.mp4' && rm '{}' && echo '========= PROCESSING $dir =============='"
 mv -f res/* ./ 2> /dev/null
 rm -rf res
 find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|avi|mpg|wmv|flv|mkv|vro)$" -not -empty |
-    parallel -j14 "ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac -f mp4 '{.}.mp4' || exit 1 && rm '{}' && echo '========= PROCESSING $dir =============='"
+    parallel -j14 "ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac -f mp4 '{.}.mp4' || exit 1 && touch -r '{}' '{.}.mp4' && rm '{}' && echo '========= PROCESSING $dir =============='"
 
 # Rescale pix
 rename -f 's/\.jpe?g$/.jpg/i' * 2> /dev/null
 mkdir -p pix
 find . -maxdepth 1 -type f -iname '*.jpg' -not -empty |
-    parallel -j14 "ffmpeg -y -i '{}' -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' 'pix/{.}.jpg' || exit 1 && rm '{}'"
+    parallel -j14 "ffmpeg -y -i '{}' -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' 'pix/{.}.jpg' || exit 1 && touch -r '{}' 'pix/{.}.jpg' && rm '{}'"
 
 # If we dont have pix - delete dir
 cd pix
