@@ -14,5 +14,5 @@ rename -f -- 's/[^A-Za-z0-9._-]/-/g' *
 
 # Rescale pix
 find . -maxdepth 1 -type f -iname '*.flv' -not -empty |
-    parallel -j14 "ffmpeg -y -i '{}' -vcodec copy -acodec mp3 -ar 44100 -f mp4 '{.}.mp4' || exit 1 && touch -r '{}' '{.}.mp4' && rm '{}'"
+    parallel -j14 "ffmpeg -y -i '{}' -vcodec libx264 -acodec aac -ar 44100 -f mp4 '{.}.mp4' || exit 1 && touch -r '{}' '{.}.mp4' && rm '{}'"
 
