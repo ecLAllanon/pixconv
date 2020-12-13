@@ -8,6 +8,7 @@
 
 ######### Config:
 
+put_year_to_filename=0  # 0 or 1
 put_date_to_filename=0  # 0 or 1
 
 #################
@@ -43,13 +44,20 @@ rename 's/\.m4v$/\.mpg/i' * 2> /dev/null
 rename 's/\.divx$/\.mpg/i' * 2> /dev/null
 rename 's/\.mpeg$/\.mpg/i' * 2> /dev/null
 rename 's/\.rmvb$/\.mov/i' * 2> /dev/null
+rename 's/\.rm$/\.mov/i' * 2> /dev/null
 
 # Get creation date and add it to filename
 for i in $(find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|avi|mpg|wmv|flv|mkv|vro|mp4)$" -not -empty -printf "%f\n"); do
-    mydate="$(exiftool -S -n -time:FileModifyDate -d %Y-%m-%d $i | cut -d' ' -f2 | cut -d':' -f1,2 --output-delimiter='-')"
-    if [ "$put_date_to_filename" -eq 0 ]; then
+    if [ "$put_date_to_filename" -eq 0 ] && [ "$put_year_to_filename" -eq 0 ]; then
+        # No any dates in filename
+        mydate=""
+    elif [ "$put_date_to_filename" -eq 0 ]; then
+        # Only year in filename
         mydate="$(exiftool -S -n -time:FileModifyDate -d %Y-%m-%d $i | cut -d' ' -f2 | cut -d':' -f1 --output-delimiter='-')"
+    else
+        mydate="$(exiftool -S -n -time:FileModifyDate -d %Y-%m-%d $i | cut -d' ' -f2 | cut -d':' -f1,2 --output-delimiter='-')"
     fi
+
     if [ "$mydate" ]; then
         mv -f $i "$mydate-$i"
     fi
