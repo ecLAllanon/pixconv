@@ -15,27 +15,63 @@ put_date_to_filename=0  # 0 or 1
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-for dir in ./*
-do
-  test -d "$dir" || continue
+OIFS="$IFS"
+IFS=$'\n'
+root_dir=$(pwd)
+for dir in `find ./* -type d -print | grep -v pix | sort -r`; do
+  cd "$root_dir"
+  echo -e "\n\n${RED}========= PROCESSING $dir =========${NC}\n"
   cd "$dir"
-  echo -e "${RED}========= PROCESSING $dir =========${NC}"
+
+# Extract all archives
+rename -- 's/[^A-Za-z0-9._-]//g' *.zip 2> /dev/null
+rename -f -- 's/[^A-Za-z0-9._-]/_/g' *.zip 2> /dev/null
+rename -- 's/[^A-Za-z0-9._-]//g' *.rar 2> /dev/null
+rename -f -- 's/[^A-Za-z0-9._-]/_/g' *.rar 2> /dev/null
+find . -maxdepth 1 -type f -name "*.rar" -exec unrar x -o- -p- {} \;
+find . -maxdepth 1 -type f -name "*.zip" -exec unzip -n {} \;
+rm -f *.rar 2> /dev/null
+rm -f *.zip 2> /dev/null
 
 # Remove empty files
-find . -size 0 -print -delete
+find . -maxdepth 1 -size 0 -print -delete
+rm -f ./*.part
+rm -f ./*.torrent
+rm -f ./*.db
+rm -f ./*.cbz
+rm -f ./*.swf
+rm -f ./*.srt
+rm -f ./*.txt
+
+echo -e '========= RENAMING =========='
+
+/usr/local/bin/cyr2lat.sh *
 
 # Remove all dangerous chars from filename
-#rename -- 's/ //g' * 2> /dev/null
-#for f in *; do mv "$f" $(echo $f | sed -e 's/[^A-Za-z0-9._-]/-/g') 2> /dev/null; done
-rename -- 's/[^A-Za-z0-9._-]//g' *
-rename -f -- 's/[^A-Za-z0-9._-]/-/g' *
+for i in $(find . -maxdepth 1 -print0 | perl -n0e 'chomp; print $_, "\n" if /[[:^ascii:][:cntrl:]]/'); do
+	rename 's/[^A-Za-z0-9._]/_/g' "$(basename $i)"
+done
+
+#for i in $(find . -maxdepth 1 -regex '.*[^ -~].*' -print); do
+for i in $(find . -maxdepth 1 -print); do
+	rename 's/[^A-Za-z0-9._]/_/g' "$(basename $i)"
+done
+
+# Remove leftovers with control chars
+for i in $(find . -maxdepth 1 -regex '.*[^ -~].*' -print); do
+	rename -f 's/[^A-Za-z0-9._]/'$(printf %.3s $(echo $RANDOM))'/g' "$(basename $i)"
+done
+
+# Replace mass underlines
+find . -type f -name "*___*" -exec bash -c 'f="$(basename $1)"; g="$(printf %.3s $(echo $RANDOM))_${f/*__/}"; mv -- "$f" "$g"' _ '{}' \;
 
 # Remove date from start of file name
-find . -name '[[:digit:]]*' -type f -exec rename 's:^(.*/)\d+-\d+([^/]*)\z:\1\2:s' {} + 2> /dev/null
-find . -name '[[:digit:]]*' -type f -exec rename 's:^(.*/)\d+-([^/]*)\z:\1\2:s' {} + 2> /dev/null
+find . -maxdepth 1 -name '[[:digit:]]*' -type f -exec rename 's:^(.*/)\d+-\d+([^/]*)\z:\1\2:s' {} + 2> /dev/null
+find . -maxdepth 1 -name '[[:digit:]]*' -type f -exec rename 's:^(.*/)\d+-([^/]*)\z:\1\2:s' {} + 2> /dev/null
 rename -f -- 's/^-+//' *
 
 # Rename other file formats
+rename 's/\.bc!$/\.mpg/i' * 2> /dev/null
 rename 's/\.dat$/\.mpg/i' * 2> /dev/null
 rename 's/\.vob$/\.mpg/i' * 2> /dev/null
 rename 's/\.asf$/\.mpg/i' * 2> /dev/null
@@ -43,8 +79,11 @@ rename 's/\.3gp$/\.mpg/i' * 2> /dev/null
 rename 's/\.m4v$/\.mpg/i' * 2> /dev/null
 rename 's/\.divx$/\.mpg/i' * 2> /dev/null
 rename 's/\.mpeg$/\.mpg/i' * 2> /dev/null
+rename 's/\.mpe$/\.mpg/i' * 2> /dev/null
 rename 's/\.rmvb$/\.mov/i' * 2> /dev/null
 rename 's/\.rm$/\.mov/i' * 2> /dev/null
+rename 's/\.png$/\.jpg/i' * 2> /dev/null
+rename 's/\.bmp$/\.jpg/i' * 2> /dev/null
 
 # Get creation date and add it to filename
 for i in $(find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|avi|mpg|wmv|flv|mkv|vro|mp4)$" -not -empty -printf "%f\n"); do
@@ -63,47 +102,70 @@ for i in $(find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|a
     fi
 done
 
+echo -e '========= CONVERTING =========='
+
+#read line
+
 # Convert videos
 mkdir -p res
 find . -maxdepth 1 -type f -iname '*.mp4' -not -empty |
-    parallel -j14 "ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac 'res/{.}.mp4' || exit 1 && touch -r '{}' 'res/{.}.mp4' && rm '{}' && echo '========= PROCESSING $dir =============='"
+    parallel -j32 "ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac 'res/{.}.mp4' && touch -r '{}' 'res/{.}.mp4' && rm '{}' && echo '========= PROCESSING $dir ==============' || (rm '{}' && exit 1)"
 mv -f res/* ./ 2> /dev/null
 rm -rf res
 find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|avi|mpg|wmv|flv|mkv|vro)$" -not -empty |
-    parallel -j14 "ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac -f mp4 '{.}.mp4' || exit 1 && touch -r '{}' '{.}.mp4' && rm '{}' && echo '========= PROCESSING $dir =============='"
+    parallel -j32 "ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac -f mp4 '{.}.mp4' && touch -r '{}' '{.}.mp4' && rm '{}' && echo '========= PROCESSING $dir ==============' || (rm '{}' && exit 1)"
 
 # Rescale pix
 rename -f 's/\.jpe?g$/.jpg/i' * 2> /dev/null
 mkdir -p pix
 find . -maxdepth 1 -type f -iname '*.jpg' -not -empty |
-    parallel -j14 "ffmpeg -y -i '{}' -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' 'pix/{.}.jpg' || exit 1 && touch -r '{}' 'pix/{.}.jpg' && rm '{}'"
+    parallel -j32 "ffmpeg -y -i '{}' -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' 'pix/{.}.jpg' && touch -r '{}' 'pix/{.}.jpg' && rm '{}' || (rm '{}' && exit 1)"
 
 # If we dont have pix - delete dir
 cd pix
-if [ "$(ls -A '.')" ]; then
+if [ "$(ls -A '.' || echo -e '========= No pixz ==========')" ]; then
   cd ..
 else
-  echo -e '========= No pixz! =========='
+  # No pixez found here
   cd ..
-  rm -rf ./pix
+  rm -rf pix
 fi
 
 # If we have some videos - make dir for pixz
-if [ "$(ls -A '.' | grep -v pix)" ]; then
+if [ "$(ls -A ./*.mp4 | grep -v pix 2> /dev/null)" ]; then
   rm -f ./*.AAE
   rm -f ./*.SRT
   rm -f ./*.THM
   rm -f ./*.BUP
   rm -f ./*.IFO
 else
-  echo -e '========= No videos, pix will not move! =========='
-  mv -f ./pix/* . 2> /dev/null
-  rm -rf ./pix
+  # No videos found here
+  echo -e '========= No videos =========='
 fi
 
-cd ..
+mv -f ./pix/* ./ 2> /dev/null
+rm -rf pix
+
+# Move dirs with few files to ..
+for i in $(find . -maxdepth 1 -type d -exec bash -c "echo -ne '{}\t'; ls '{}' | wc -l" \; | awk -F"\t" '$NF<=20{print $1}'); do
+	mv ./$i/* ./
+done
+
+# Shorten filenames
+for i in $(find . -maxdepth 1 -type d -print); do
+	rename 's/^(.{10}).*/$1.'$(printf %.2s $(echo $RANDOM))'/' "$(basename $i)"
+done
+rename 's/^(.{50}).*(\..*)$/$1$2/' *
+    
+#find . -maxdepth 1 -type d -exec bash -c "" \;
+
+# Cleanup empties
+echo -e "=== Deleting empty:"
+find . -maxdepth 1 -type d -empty -delete
+find . -maxdepth 1 -size 0 -print -delete
 
 done
 
-echo -e "${RED}========= ALL DONE =========${NC}"
-
+for i in {1..20}; do
+	echo -e "\n\n${RED}========= ALL DONE =========${NC}"
+done
