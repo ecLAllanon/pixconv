@@ -19,9 +19,12 @@
 alias chwww='chown -R www-data:www-data'
 alias clr='echo > /opt/logs/access.log && echo > /opt/logs/error.log'
 alias del0='find . -size 0 -print -delete'
-alias mvsub='find . -type f -mindepth 2 -exec mv -f -- {} . \; && find . -size 0 -print -delete && find . -type d -empty -delete'
+alias mvsub='for i in $(find . -mindepth 1 -type d -exec bash -c echo -ne "{}\t"; ls "{}" \;) ; do  mv "./$i/*" ./ ; done ; find . -size 0 -print -delete ; find . -type d -empty -delete'
 alias scr='screen -dR torr'
 alias vf='cd'
 alias ginx='systemctl restart nginx'
-alias dirtree="find * -type d > dirtree.txt && sort -f -o dirtree.txt dirtree.txt && sed -n '/thumb/!p' dirtree.txt > temp && mv temp dirtree.txt"
+alias dirtree="echo '.' > dirtree.txt && find * -type d > dirtree.txt && sort -f -o dirtree.txt dirtree.txt && sed -n '/thumb/!p' dirtree.txt > temp && mv temp dirtree.txt"
 alias newcert='certbot certonly --webroot'
+alias rc='source ~/.bashrc'
+alias thumbs='dir="$(pwd)" ; cd /www/gallery ; php thumbs.php -p "$dir" ; cd "$dir" ; chown -R www-data:www-data *'
+alias massrename='ls -1prt | grep -v "/$" | cat -n | while read n f; do mv -n "${f}" "$(printf "%04d" $n).${f#*.}"; done'
