@@ -1,7 +1,7 @@
 #!/bin/bash
 
 check_cam () {
- logfile=/var/log/ping.log
+ logfile=/var/log/camera.log
 
  if [ "$1" ]
  then
@@ -47,6 +47,12 @@ check_cam () {
  done
 }
 
-check_cam cam.org.ua
+if [ "$1" = "DAEMON" ]; then
+	check_cam SITE
+fi
+
+export PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/sbin:/usr/local/bin
+umask 022
+nohup setsid $0 DAEMON $* &
 
 exit 0

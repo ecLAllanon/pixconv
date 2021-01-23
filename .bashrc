@@ -23,7 +23,7 @@ alias mvsub='for i in $(find . -mindepth 1 -type d -exec bash -c echo -ne "{}\t"
 alias scr='screen -dR torr'
 alias vf='cd'
 alias ginx='systemctl restart nginx'
-alias dirtree="echo '.' > dirtree.txt && find * -type d > dirtree.txt && sort -f -o dirtree.txt dirtree.txt && sed -n '/thumb/!p' dirtree.txt > temp && mv temp dirtree.txt"
+alias dirtree="echo '.' > dirtree.txt && find * -type d >> dirtree.txt && sort -f -o dirtree.txt dirtree.txt && sed -n '/thumb/!p' dirtree.txt > temp && mv temp dirtree.txt"
 alias newcert='certbot certonly --webroot'
 alias rc='source ~/.bashrc'
 alias thumbs='dir="$(pwd)" ; cd /www/gallery ; php thumbs.php -p "$dir" ; cd "$dir" ; chown -R www-data:www-data *'
