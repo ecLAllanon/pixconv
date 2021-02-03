@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+#duplicates {
+  font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+#duplicates td, #duplicates th {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+#myInput {
+  width: 100%; 
+  font-size: 16px;
+  padding: 12px 20px 12px 40px
+  border: 1px solid #ddd;
+  margin-bottom: 12px;
+}
+
+#duplicates tr:nth-child(even){background-color: #f2f2f2;}
+
+#duplicates tr:hover {background-color: #ddd;}
+
+#duplicates th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  text-align: left;
+  background-color: #2cccc6;
+  color: white;
+}
+</style>
+</head>
+<body>
+
+<pre></pre>
+<table id="duplicates"><tr><th style='cursor:pointer'>Group Id</th><th style='cursor:pointer'>Thumbnail</th><th style='cursor:pointer'>Path</th><th style='cursor:pointer'>Size</th><th style='cursor:pointer'>Similary Percent</th><th style='cursor:pointer'>Duration</th><th style='cursor:pointer'>Frame Size</th><th style='cursor:pointer'>Format</th><th style='cursor:pointer'>Audio Format</th><th style='cursor:pointer'>Audio Channel</th><th style='cursor:pointer'>Audio Sample Rate</th><th style='cursor:pointer'>Bitrate Kbs</th><th style='cursor:pointer'>Fps</th><th style='cursor:pointer'>Created On</th></tr></table>
+<script>
+const getCellValue = (tr, idx) => tr.children[idx].innerText || tr.children[idx].textContent;
+
+const comparer = (idx, asc) => (a, b) => ((v1, v2) => 
+	v1 !== '' && v2 !== '' && !isNaN(v1) && !isNaN(v2) ? v1 - v2 : v1.toString().localeCompare(v2)
+	)(getCellValue(asc ? a : b, idx), getCellValue(asc ? b : a, idx));
+
+// do the work...
+document.querySelectorAll('th').forEach(th => th.addEventListener('click', (() => {
+	const table = th.closest('table');
+	Array.from(table.querySelectorAll('tr:nth-child(n+2)'))
+	    .sort(comparer(Array.from(th.parentNode.children).indexOf(th), this.asc = !this.asc))
+	    .forEach(tr => table.appendChild(tr) );
+
+  setTimeout(function() {
+	  var lastId = "last", curId = "cur";
+	  var rows = table.rows;
+	  var names = Array();
+	  for (var i = (rows.length - 1); i > 0; i--) {
+		curId = rows[i].getElementsByTagName("TD")[0];
+		if (curId.innerHTML.toLowerCase().localeCompare(lastId) != 0) {
+			lastId = curId.innerHTML.toLowerCase().slice();
+	    } else {
+	    	names.push(rows[i].getElementsByTagName("TD")[2].innerText);
+	    }
+	  }
+	  table.parentElement.removeChild(table);
+	  document.querySelector('pre').innerText = '#!/bin/bash\r\nrm -f "' + names.join('"\r\nrm -f "') + '"';
+	  alert("Done!");
+  }, 4000);
+})));
+</script>
+
+<script>
+function myFunction() {
+  // Declare variables
+  var input, filter, table, tr, td, i, txtValue;
+  input = document.getElementById("myInput");
+  filter = input.value.toUpperCase();
+  table = document.getElementById("duplicates");
+  tr = table.getElementsByTagName("tr");
+
+  for (i = 0; i < tr.length; i++) {
+    td = tr[i].getElementsByTagName("td")[1]; // <------------ Search column
+    if (td) {
+      txtValue = td.textContent || td.innerText;
+      if (txtValue.toUpperCase().indexOf(filter) > -1) {
+        tr[i].style.display = "";
+      } else {
+        tr[i].style.display = "none";
+      }
+    }
+  }
+}
+</script>
+
+</body>
+</html>
