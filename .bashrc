@@ -19,8 +19,8 @@
 alias chwww='chown -R www-data:www-data'
 alias clr='echo > /opt/logs/access.log && echo > /opt/logs/error.log'
 alias del0='find . -size 0 -print -delete'
-alias mvsub='for i in $(find . -mindepth 1 -type d -exec bash -c echo -ne "{}\t"; ls "{}" \;) ; do  mv "./$i/*" ./ ; done ; find . -size 0 -print -delete ; find . -type d -empty -delete'
 alias scr='screen -dR torr'
+alias scr1='screen -dR down'
 alias vf='cd'
 alias ginx='systemctl restart nginx'
 alias dirtree="echo '.' > dirtree.txt && find * -type d >> dirtree.txt && sort -f -o dirtree.txt dirtree.txt && sed -n '/thumb/!p' dirtree.txt > temp && mv temp dirtree.txt"
