@@ -25,7 +25,7 @@ alias vf='cd'
 alias ginx='systemctl restart nginx'
 alias newcert='certbot certonly --webroot'
 alias rc='source ~/.bashrc'
-#alias dirtree="echo '.' > dirtree.txt && find -L * -type d >> dirtree.txt && sort -f -o dirtree.txt dirtree.txt && sed -n '/thumb/!p' dirtree.txt > temp && mv temp dirtree.txt"
-#alias thumbs='dir="$(pwd)" ; cd /www/gallery ; php thumbs.php -p "$dir" ; cd "$dir" ; chown -R www-data:www-data *'
+alias dirtree="echo '.' > dirtree.txt && find -L * -type d >> dirtree.txt && sort -f -o dirtree.txt dirtree.txt && sed -n '/thumb/!p' dirtree.txt > temp && mv temp dirtree.txt"
+alias thumbs='dir="$(pwd)" ; cd /www/gallery ; php thumbs.php -p "$dir" ; cd "$dir" ; chown -R www-data:www-data *'
 alias massrename='ls -1prt | grep -v "/$" | cat -n | while read n f; do mv -n "${f}" "$(printf "%04d" $n).${f#*.}"; done'
 alias listeners='netstat -tulpn'

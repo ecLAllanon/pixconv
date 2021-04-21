@@ -9,18 +9,21 @@
 ######### Config:
 
 put_year_to_filename=0  # 0 or 1
-put_date_to_filename=0  # 0 or 1
+put_date_to_filename=1  # 0 or 1
 
 #################
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
+# cd /www/commandor/travels/.incoming
+
 OIFS="$IFS"
 IFS=$'\n'
-root_dir=$(pwd)
-for dir in `find ./* -type d -print | grep -v pix | sort -r`; do
-	cd "$root_dir"
+incoming_dir=$(pwd)
+# for dir in `find ./* -type d -print | grep -v pix | sort -r`; do
+for dir in `find . -type d -print | grep -v pix | sort -r`; do
+	cd "$incoming_dir"
 	echo -e "\n\n${RED}========= PROCESSING $dir =========${NC}\n"
 	cd "$dir"
 
@@ -127,15 +130,15 @@ for dir in `find ./* -type d -print | grep -v pix | sort -r`; do
 	# If we dont have pix - delete dir
 	cd pix
 	if [ "$(ls -A '.' || echo -e '\n========= No pixz ==========')" ]; then
-	  cd ..
+	  cd ".."
 	else
 	  # No pixez found here
-	  cd ..
+	  cd ".."
 	  rm -rf pix
 	fi
 
 	# If we have some videos - make dir for pixz
-	if [ "$(ls -A ./*.mp4 | grep -v pix 2> /dev/null)" ]; then
+	if [ "$(ls -A ./*.mp4 2> /dev/null | grep -v pix 2> /dev/null)" ]; then
 	  rm -f ./*.AAE
 	  rm -f ./*.SRT
 	  rm -f ./*.THM
@@ -150,9 +153,9 @@ for dir in `find ./* -type d -print | grep -v pix | sort -r`; do
 	rm -rf pix
 
 	# Move dirs with few files to ..
-	for i in $(find . -maxdepth 1 -type d -exec bash -c "echo -ne '{}\t'; ls '{}' | wc -l" \; | awk -F"\t" '$NF<=20{print $1}'); do
-		mv ./$i/* ./
-	done
+#	for i in $(find . -maxdepth 1 -type d -exec bash -c "echo -ne '{}\t'; ls '{}' | wc -l" \; | awk -F"\t" '$NF<=20{print $1}'); do
+#		mv ./$i/* ./
+#	done
 
 	# Shorten filenames
 	for i in $(find . -maxdepth 1 -type d -print); do
@@ -165,7 +168,7 @@ for dir in `find ./* -type d -print | grep -v pix | sort -r`; do
 	# rename 's/^(.{50}).*(\..*)$/$1$2/' *
     
 	# Cleanup empties
-	echo -e "=== Deleting empty:"
+	#echo -e "=== Deleting empty:"
 	find . -maxdepth 1 -type d -empty -delete ;
 	find . -maxdepth 1 -size 0 -print -delete ;
 
@@ -175,8 +178,36 @@ for dir in `find ./* -type d -print | grep -v pix | sort -r`; do
 		mv -n "${bfile}" "$(printf "%05d" $RANDOM).${bfile#*.}"
 	done
 
+	# Move to processed dir to main gallery
+	cur_dir=$(pwd)
+	if [ "$cur_dir" = "$incoming_dir" ]; then
+		echo -e "=== Moving random trash to Incoming"
+	    mv -f * "$incoming_dir/../Incoming/" 2> /dev/null
+	    cd "$incoming_dir/../Incoming/"
+	    if [ ! -z "$(ls '.' | wc -l | awk -F"\t" '$NF>=2{print $1}')" ]; then
+			cd ".."
+			lastDir=$(find Incoming-* -maxdepth 0 -type d 2> /dev/null | tail -1 | cut -c 10-)
+			if [ -z "$lastDir" ]; then
+				echo -e "=== Incoming is overloaded, dumping trash to ${GREEN}Incoming-0001${NC}"
+				mv -f "Incoming" "Incoming-0001" 2> /dev/null
+			else
+				lastDir=000$(( 10#$lastDir + 1 ))
+				echo -e "=== Incoming is overloaded, dumping trash to ${GREEN}Incoming-${lastDir: -4}${NC}"
+				mv -f "Incoming" "Incoming-${lastDir: -4}" 2> /dev/null
+			fi
+#			mv -f "Incoming" "$(printf "Incoming-%05d" $RANDOM)" 2> /dev/null
+			mkdir -p "Incoming"
+	    fi
+	else
+		echo -e "=== Moving processed dir to gallery"
+	    mv -f "../$dir" "$incoming_dir/.." 2> /dev/null
+	fi
+            
 done
 
-for i in {1..20}; do
+cd "$incoming_dir/.."
+/usr/local/bin/build > /dev/null
+
+for i in {1..1}; do
 	echo -e "\n\n${RED}========= ALL DONE =========${NC}"
 done
