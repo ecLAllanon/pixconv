@@ -51,7 +51,6 @@ function cyr2lat {
 for f in "$@"
 do
     if [ ! -f "$f" ]; then
-        echo "$(basename "$0") warn: this is not a regular file (skipped): $f" >&2
         continue
     fi
  
@@ -61,12 +60,11 @@ do
     NEWFILENAME=$(cyr2lat "$BASENAME") 
      
     if [ -f "$DIR/$NEWFILENAME" ]; then
-        echo "$BASENAME warn: target filename already exists (skipped): $BASENAME/$NEWFILENAME" >&2
         continue
     fi
  
     if [ "$BASENAME" != "$NEWFILENAME" ]; then
         echo "\`$f' -> \`$NEWFILENAME'"
-        mv -i "$f" "$DIR/$NEWFILENAME"
+        mv -i "$f" "$DIR/$NEWFILENAME" 2> /dev/null
     fi
 done

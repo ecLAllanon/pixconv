@@ -18,20 +18,25 @@ NC='\033[0m' # No Color
 
 # cd /www/commandor/travels/.incoming
 
+AUTO=0
+if [ -n "$1" ] && [ "$1" = "auto" ]; then
+	AUTO=1
+fi
+
 OIFS="$IFS"
 IFS=$'\n'
 incoming_dir=$(pwd)
 # for dir in `find ./* -type d -print | grep -v pix | sort -r`; do
-for dir in `find . -type d -print | grep -v pix | sort -r`; do
+for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	cd "$incoming_dir"
-	echo -e "\n\n${RED}========= PROCESSING $dir =========${NC}\n"
+	echo -e "\n${RED}========= PROCESSING $dir =========${NC}\n"
 	cd "$dir"
 
 	# Extract all archives
-	rename -- 's/[^A-Za-z0-9._-]//g' *.zip 2> /dev/null
-	rename -f -- 's/[^A-Za-z0-9._-]/_/g' *.zip 2> /dev/null
-	rename -- 's/[^A-Za-z0-9._-]//g' *.rar 2> /dev/null
-	rename -f -- 's/[^A-Za-z0-9._-]/_/g' *.rar 2> /dev/null
+	rename -- 's/[^A-Za-z0-9._-]//g' "*.zip" 2> /dev/null
+	rename -f -- 's/[^A-Za-z0-9._-]/_/g' "*.zip" 2> /dev/null
+	rename -- 's/[^A-Za-z0-9._-]//g' "*.rar" 2> /dev/null
+	rename -f -- 's/[^A-Za-z0-9._-]/_/g' "*.rar" 2> /dev/null
 	find . -maxdepth 1 -type f -name "*.rar" -exec unrar x -o- -p- {} \;
 	find . -maxdepth 1 -type f -name "*.zip" -exec unzip -n {} \;
 	rm -f *.rar 2> /dev/null
@@ -48,31 +53,31 @@ for dir in `find . -type d -print | grep -v pix | sort -r`; do
 	rm -f ./*.srt
 	rm -f ./*.txt
 
-	echo -e "\n${GREEN}========= RENAMING ==========${NC}"
+	echo -e "=== ${GREEN}Renaming...${NC}"
 
 	/usr/local/bin/cyr2lat.sh *
 
 	# Remove all dangerous chars from filename
 	for i in $(find . -maxdepth 1 -print0 | perl -n0e 'chomp; print $_, "\n" if /[[:^ascii:][:cntrl:]]/'); do
-		rename -- 's/[^A-Za-z0-9._]/_/g' "$(basename $i)"
+		rename -- 's/[^A-Za-z0-9._]/_/g' "$(basename $i)" 2> /dev/null
 	done
 
 	#for i in $(find . -maxdepth 1 -regex '.*[^ -~].*' -print); do
-	for i in $(find . -maxdepth 1 -print); do
-		rename -- 's/[^A-Za-z0-9._]/_/g' "$(basename $i)"
-	done
+#	for i in $(find . -maxdepth 1 -print); do
+#		rename -- 's/[^A-Za-z0-9._]/_/g' "$(basename $i)" 2> /dev/null
+#	done
 
 	# Remove leftovers with control chars
 	for i in $(find . -maxdepth 1 -regex '.*[^ -~].*' -print); do
-		rename -f -- 's/[^A-Za-z0-9._]/'$(printf %.3s $(echo $RANDOM))'/g' "$(basename $i)"
+		rename -f -- 's/[^A-Za-z0-9._]/'$(printf %.3s $(echo $RANDOM))'/g' "$(basename $i)" 2> /dev/null
 	done
 
 	# Replace mass underlines
-	find . -type f -name "*___*" -exec bash -c 'f="$(basename $1)"; g="$(printf %.3s $(echo $RANDOM))_${f/*__/}"; mv -- "$f" "$g"' _ '{}' \;
+	find . -type f -name "*___*" -exec bash -c 'f="$(basename $1)"; g="$(printf %.3s $(echo $RANDOM))_${f/*__/}"; mv -- "$f" "$g" 2> /dev/null' _ '{}' \;
 
 	# Remove date from start of file name
-	find . -maxdepth 1 -name '[[:digit:]]*' -type f -exec rename 's:^(.*/)\d+-\d+([^/]*)\z:\1\2:s' {} + 2> /dev/null
-	find . -maxdepth 1 -name '[[:digit:]]*' -type f -exec rename 's:^(.*/)\d+-([^/]*)\z:\1\2:s' {} + 2> /dev/null
+	find . -maxdepth 1 -name '[[:digit:]]*' -type f -exec rename 's:^(.*/)\d+-\d+([^/]*)\z:$1$2:s' {} + 2> /dev/null
+	find . -maxdepth 1 -name '[[:digit:]]*' -type f -exec rename 's:^(.*/)\d+-([^/]*)\z:$1$2:s' {} + 2> /dev/null
 	rename -f -- 's/^-+//' *
 
 	# Rename other file formats
@@ -90,6 +95,7 @@ for dir in `find . -type d -print | grep -v pix | sort -r`; do
 	rename 's/\.rm$/\.mov/i' * 2> /dev/null
 	rename 's/\.png$/\.jpg/i' * 2> /dev/null
 	rename 's/\.bmp$/\.jpg/i' * 2> /dev/null
+	rename -f 's/\.jpe?g$/.jpg/i' * 2> /dev/null
 
 	# Get creation date and add it to filename
 	for i in $(find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|avi|mpg|wmv|flv|mkv|vro|mp4)$" -not -empty -printf "%f\n"); do
@@ -103,42 +109,45 @@ for dir in `find . -type d -print | grep -v pix | sort -r`; do
 	        mydate="$(exiftool -S -n -time:FileModifyDate -d %Y-%m-%d $i | cut -d' ' -f2 | cut -d':' -f1,2 --output-delimiter='-')"
 	    fi
 
-	    if [ "$mydate" ]; then
-	        mv -f $i "$mydate-$i"
+	    if [ ! -z "$mydate" ]; then
+	        mv -f "$i" "$mydate-$i"
 	    fi
 	done
-
-	echo -e "\n${GREEN}========= CONVERTING ==========${NC}"
-
-	#read line
+	
+	echo -e "=== ${GREEN}Convering...${NC}"
 
 	# Convert videos
 	mkdir -p res
 	find . -maxdepth 1 -type f -iname '*.mp4' -not -empty |
-	    parallel -j15 "echo -e '\n${GREEN}========= PROCESSING $dir ][ {}  ==============${NC}\n' && ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac 'res/{.}.mp4' && touch -r '{}' 'res/{.}.mp4' && rm '{}' || (rm '{}' && exit 1)"
+	    parallel -j15 "echo -e 'processing {}' && ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac 'res/{.}.mp4' 2> /dev/null && touch -r '{}' 'res/{.}.mp4' && rm '{}' || (rm '{}' && exit 1)"
 	mv -f res/* ./ 2> /dev/null
 	rm -rf res
 	find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|avi|mpg|wmv|flv|mkv|vro)$" -not -empty |
-	    parallel -j15 "echo -e '\n${GREEN}========= PROCESSING $dir ][ {} ==============${NC}\n' && ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac -f mp4 '{.}.mp4' && touch -r '{}' '{.}.mp4' && rm '{}' || (rm '{}' && exit 1)"
+	    parallel -j15 "echo -e 'processing {}' && ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac -f mp4 '{.}.mp4' 2> /dev/null && touch -r '{}' '{.}.mp4' && rm '{}' || (rm '{}' && exit 1)"
 
-	# Rescale pix
-	rename -f 's/\.jpe?g$/.jpg/i' * 2> /dev/null
+	# Rescale and autorotate pix
 	mkdir -p pix
+	echo -e "\n=== Autorotating and rescaling images..."
+    #parallel -j15 "exiftool -S -Orientation=1 -n -overwrite_original '{}' ; ffmpeg -y -i '{}' -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' 'pix/{.}.jpg' && touch -r '{}' 'pix/{.}.jpg' && rm '{}' || (rm '{}' && exit 1)"
 	find . -maxdepth 1 -type f -iname '*.jpg' -not -empty |
-	    parallel -j15 "exiftool -S -Orientation=1 -n -overwrite_original '{}' ; ffmpeg -y -i '{}' -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' 'pix/{.}.jpg' && touch -r '{}' 'pix/{.}.jpg' && rm '{}' || (rm '{}' && exit 1)"
+	    parallel -j15 "exiftran -aip '{}' ; ffmpeg -y -i '{}' -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' 'pix/{.}.jpg' 2> /dev/null && touch -r '{}' 'pix/{.}.jpg' && rm '{}' || (rm '{}' && exit 1)"
 
 	# If we dont have pix - delete dir
 	cd pix
-	if [ "$(ls -A '.' || echo -e '\n========= No pixz ==========')" ]; then
-	  cd ".."
+	if [ ! -z "$(ls -A '.')" ]; then
+	  cd ..
 	else
 	  # No pixez found here
-	  cd ".."
+	  echo -e '!!! No pixz here'
+	  cd ..
 	  rm -rf pix
 	fi
 
+	#echo -e '\n!!! Press any key !!!\n'
+	#read line
+
 	# If we have some videos - make dir for pixz
-	if [ "$(ls -A ./*.mp4 2> /dev/null | grep -v pix 2> /dev/null)" ]; then
+	if [ ! -z "$(ls -A ./*.mp4 2> /dev/null | grep -vx pix 2> /dev/null)" ]; then
 	  rm -f ./*.AAE
 	  rm -f ./*.SRT
 	  rm -f ./*.THM
@@ -146,11 +155,11 @@ for dir in `find . -type d -print | grep -v pix | sort -r`; do
 	  rm -f ./*.IFO
 	else
 	  # No videos found here
-	  echo -e '\n========= No videos =========='
+	  echo -e '!!! No videos here'
+	  mv -f ./pix/* ./ 2> /dev/null
+	  rm -rf pix
 	fi
 
-	mv -f ./pix/* ./ 2> /dev/null
-	rm -rf pix
 
 	# Move dirs with few files to ..
 #	for i in $(find . -maxdepth 1 -type d -exec bash -c "echo -ne '{}\t'; ls '{}' | wc -l" \; | awk -F"\t" '$NF<=20{print $1}'); do
@@ -159,7 +168,7 @@ for dir in `find . -type d -print | grep -v pix | sort -r`; do
 
 	# Shorten filenames
 	for i in $(find . -maxdepth 1 -type d -print); do
-		rename 's/^(.{10}).*/$1.'$(printf %.2s $(echo $RANDOM))'/' "$(basename $i)"
+		rename 's/^(.{20}).*/$1.'$(printf %.2s $(echo $RANDOM))'/' "$(basename $i)"
 	done
 
 	# Truncate from start of filename
@@ -179,35 +188,40 @@ for dir in `find . -type d -print | grep -v pix | sort -r`; do
 	done
 
 	# Move to processed dir to main gallery
-	cur_dir=$(pwd)
-	if [ "$cur_dir" = "$incoming_dir" ]; then
-		echo -e "=== Moving random trash to Incoming"
-	    mv -f * "$incoming_dir/../Incoming/" 2> /dev/null
-	    cd "$incoming_dir/../Incoming/"
-	    if [ ! -z "$(ls '.' | wc -l | awk -F"\t" '$NF>=2{print $1}')" ]; then
-			cd ".."
-			lastDir=$(find Incoming-* -maxdepth 0 -type d 2> /dev/null | tail -1 | cut -c 10-)
-			if [ -z "$lastDir" ]; then
-				echo -e "=== Incoming is overloaded, dumping trash to ${GREEN}Incoming-0001${NC}"
-				mv -f "Incoming" "Incoming-0001" 2> /dev/null
-			else
-				lastDir=000$(( 10#$lastDir + 1 ))
-				echo -e "=== Incoming is overloaded, dumping trash to ${GREEN}Incoming-${lastDir: -4}${NC}"
-				mv -f "Incoming" "Incoming-${lastDir: -4}" 2> /dev/null
-			fi
-#			mv -f "Incoming" "$(printf "Incoming-%05d" $RANDOM)" 2> /dev/null
-			mkdir -p "Incoming"
-	    fi
-	else
-		echo -e "=== Moving processed dir to gallery"
-	    mv -f "../$dir" "$incoming_dir/.." 2> /dev/null
-	fi
-            
+	if [ "$AUTO" -eq 1 ]; then
+		cur_dir=$(pwd)
+		if [ "$cur_dir" = "$incoming_dir" ]; then
+			echo -e "\n=== Moving random trash to Incoming..."
+		    mv -f * "$incoming_dir/../Incoming/" 2> /dev/null
+		    cd "$incoming_dir/../Incoming/"
+		    if [ ! -z "$(ls -A '.' | wc -l | awk -F"\t" '$NF>=50{print $1}')" ] || [ ! -z "$(ls -A '.' | wc -l | awk -F"\t" '$NF>=150{print $1}')" ]; then
+				cd ..
+				lastDir=$(find Incoming-* -maxdepth 0 -type d 2> /dev/null | tail -1 | cut -c 10-)
+				if [ -z "$lastDir" ]; then
+					echo -e "=== Incoming is overloaded, dumping trash to ${GREEN}Incoming-0001${NC}"
+					mv -f Incoming Incoming-0001 2> /dev/null
+				else
+					lastDir=000$(( 10#$lastDir + 1 ))
+					echo -e "=== Incoming is overloaded, dumping trash to ${GREEN}Incoming-${lastDir: -4}${NC}"
+					mv -f Incoming "Incoming-${lastDir: -4}" 2> /dev/null
+				fi
+	#			mv -f Incoming "$(printf "Incoming-%05d" $RANDOM)" 2> /dev/null
+				mkdir -p Incoming
+		    fi
+		else
+			echo -e "\n=== Moving processed dir to gallery..."
+		    mv -f "../$dir" "$incoming_dir/.." 2> /dev/null
+		fi
+	fi            
 done
 
-cd "$incoming_dir/.."
+# Build thumbnails and dirtree.txt
+cd "$incoming_dir"
+if [ "$AUTO" -eq 1 ]; then
+	cd "$incoming_dir/.."
+fi
 /usr/local/bin/build > /dev/null
 
-for i in {1..1}; do
-	echo -e "\n\n${RED}========= ALL DONE =========${NC}"
-done
+#for i in {1..10}; do
+	echo -e "\n${RED}========= ALL DONE =========${NC}\n"
+#done
