@@ -5,6 +5,8 @@
 # -vf scale='trunc(min(1,min(1280/iw,720/ih))*iw/2)*2':'trunc(min(1,min(1280/iw,720/ih))*ih/2)*2':force_original_aspect_ratio=decrease
 # -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2'
 # ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac -f mp4 '{.}.mp4' || exit 1 && rm '{}'
+# ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx265 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac -f mp4 '{.}.mp4' 2> /dev/null && touch -r '{}' '{.}.mp4' && rm '{}' || (rm '{}' && exit 1)"
+
 
 ######### Config:
 
@@ -18,18 +20,17 @@ NC='\033[0m' # No Color
 
 # cd /www/commandor/travels/.incoming
 
-AUTO=0
-if [ -n "$1" ] && [ "$1" = "auto" ]; then
-	AUTO=1
-fi
-
+AUTO="$1"
 OIFS="$IFS"
 IFS=$'\n'
 incoming_dir=$(pwd)
+start_time=$(date '+%m-%d %H:%M:%S')
+rm -rf res
+clear -x
 # for dir in `find ./* -type d -print | grep -v pix | sort -r`; do
 for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	cd "$incoming_dir"
-	echo -e "\n${RED}========= PROCESSING $dir =========${NC}\n"
+	echo -e "\n========= ${GREEN}PROCESSING $dir${NC} =========  $(date '+%m-%d %H:%M:%S')\n"
 	cd "$dir"
 
 	# Extract all archives
@@ -52,6 +53,7 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	rm -f ./*.swf
 	rm -f ./*.srt
 	rm -f ./*.txt
+	rm -f ./*.log
 
 	echo -e "=== ${GREEN}Renaming...${NC}"
 
@@ -114,23 +116,52 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	    fi
 	done
 	
+	# (time echo 'test') 2>&1 >/dev/null | grep 'real'
+
 	echo -e "=== ${GREEN}Convering...${NC}"
+	mkdir -p res
 
 	# Convert videos
-	mkdir -p res
+	# Codecs: libvpx-vp9 libaom-av1 libx264 ][ MKV
+
+# CRF 0-51, less = better
+#	    	-c:v libx264 -crf 19 -tune zerolatency -preset medium \
+
+# CRF 0-63, less = better
+#	    	-c:v libaom-av1 -crf 30 -b:v 0 -strict -2 \
+
 	find . -maxdepth 1 -type f -iname '*.mp4' -not -empty |
-	    parallel -j15 "echo -e 'processing {}' && ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac 'res/{.}.mp4' 2> /dev/null && touch -r '{}' 'res/{.}.mp4' && rm '{}' || (rm '{}' && exit 1)"
-	mv -f res/* ./ 2> /dev/null
+	    parallel --nice -5 --halt now,fail=1 --eta -j15 "echo -e '\n\nprocessing {} ... started: $(date "+%H:%M:%S")' && \
+	    	(time ffmpeg -y -i '{}' \
+	    	-c:v libaom-av1 -crf 30 -b:v 0 -strict -2 \
+	    	-vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' \
+	    	-c:a aac -b:a 128k 'res/{.}.mp4') 2>&1 2>'{/}'.log && \
+	    	touch -r '{}' 'res/{.}.mp4' && \
+	    	echo -e '${GREEN}Done${NC}: {}' || \
+	    	  (echo -e '${RED}Recoding error:${NC} {}\n' && echo -e '$(pwd)/{}' >> /opt/www/FAILED.TXT && exit 1) && rm '{}'" # && rm '{/}'.log"
+
+	mv -n res/* ./ 2> /dev/null
 	rm -rf res
+
 	find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|avi|mpg|wmv|flv|mkv|vro)$" -not -empty |
-	    parallel -j15 "echo -e 'processing {}' && ffmpeg -y -analyzeduration 10000000 -err_detect ignore_err -i '{}' -vcodec libx264 -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' -acodec aac -f mp4 '{.}.mp4' 2> /dev/null && touch -r '{}' '{.}.mp4' && rm '{}' || (rm '{}' && exit 1)"
+	    parallel --nice -5 --halt now,fail=1 --eta -j15 "echo -e '\n\nprocessing {} ... started: $(date "+%H:%M:%S")' && \
+	    	(time ffmpeg -y -i '{}' \
+	    	-c:v libaom-av1 -crf 30 -b:v 0 -strict -2 \
+	    	-vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' \
+	    	-c:a aac -b:a 128k '{.}.mp4') 2>&1 >/dev/null 2>'{/}'.log && \
+	    	touch -r '{}' '{.}.mp4' && \
+	    	echo -e '${GREEN}Done${NC}: {}' || \
+	    	  (echo -e '${RED}Recoding error:${NC} {}\n' && echo -e '$(pwd)/{}' >> /opt/www/FAILED.TXT && exit 1) && rm '{}'" # && rm '{/}'.log"
+
 
 	# Rescale and autorotate pix
 	mkdir -p pix
-	echo -e "\n=== Autorotating and rescaling images..."
-    #parallel -j15 "exiftool -S -Orientation=1 -n -overwrite_original '{}' ; ffmpeg -y -i '{}' -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' 'pix/{.}.jpg' && touch -r '{}' 'pix/{.}.jpg' && rm '{}' || (rm '{}' && exit 1)"
+	echo -e "\n=== ${GREEN}Rotating/rescaling${NC} images"
 	find . -maxdepth 1 -type f -iname '*.jpg' -not -empty |
-	    parallel -j15 "exiftran -aip '{}' ; ffmpeg -y -i '{}' -vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' 'pix/{.}.jpg' 2> /dev/null && touch -r '{}' 'pix/{.}.jpg' && rm '{}' || (rm '{}' && exit 1)"
+	    parallel --eta -j15 " exiftran -aip '{}' ; ffmpeg -y -i '{}' \
+	    	-vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' 'pix/{.}.jpg' 2> /dev/null && \
+	    	touch -r '{}' 'pix/{.}.jpg' || \
+	    	(echo -e '${RED}Recoding error${NC} --- file {}' && echo -e '$(pwd)/{}' >> /opt/www/FAILED.TXT && exit 1) && rm '{}' "
 
 	# If we dont have pix - delete dir
 	cd pix
@@ -138,13 +169,10 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	  cd ..
 	else
 	  # No pixez found here
-	  echo -e '!!! No pixz here'
+	  echo -e '-- No pixz here'
 	  cd ..
 	  rm -rf pix
 	fi
-
-	#echo -e '\n!!! Press any key !!!\n'
-	#read line
 
 	# If we have some videos - make dir for pixz
 	if [ ! -z "$(ls -A ./*.mp4 2> /dev/null | grep -vx pix 2> /dev/null)" ]; then
@@ -155,7 +183,7 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	  rm -f ./*.IFO
 	else
 	  # No videos found here
-	  echo -e '!!! No videos here'
+	  echo -e '-- No videos here'
 	  mv -f ./pix/* ./ 2> /dev/null
 	  rm -rf pix
 	fi
@@ -178,8 +206,8 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
     
 	# Cleanup empties
 	#echo -e "=== Deleting empty:"
-	find . -maxdepth 1 -type d -empty -delete ;
-	find . -maxdepth 1 -size 0 -print -delete ;
+	#find . -maxdepth 1 -type d -empty -delete ;
+	#find . -maxdepth 1 -size 0 -print -delete ;
 
 	# Rename long numeric filenames 
 	for f in $(find . -maxdepth 1 -type f -regex "\./[0-9._-]*\..*" -print); do
@@ -188,10 +216,10 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	done
 
 	# Move to processed dir to main gallery
-	if [ "$AUTO" -eq 1 ]; then
+	if [ ! -z "$AUTO" ]; then
 		cur_dir=$(pwd)
 		if [ "$cur_dir" = "$incoming_dir" ]; then
-			echo -e "\n=== Moving random trash to Incoming..."
+			echo -e "\n=== ${GREEN}Moving${NC} random trash to Incoming..."
 		    mv -f * "$incoming_dir/../Incoming/" 2> /dev/null
 		    cd "$incoming_dir/../Incoming/"
 		    if [ ! -z "$(ls -A '.' | wc -l | awk -F"\t" '$NF>=50{print $1}')" ] || [ ! -z "$(ls -A '.' | wc -l | awk -F"\t" '$NF>=150{print $1}')" ]; then
@@ -209,19 +237,21 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 				mkdir -p Incoming
 		    fi
 		else
-			echo -e "\n=== Moving processed dir to gallery..."
+			echo -e "\n=== ${GREEN}Moving${NC} processed ${GREEN}$dir${NC} to gallery ... $(date '+%m-%d %H:%M:%S')"
 		    mv -f "../$dir" "$incoming_dir/.." 2> /dev/null
 		fi
 	fi            
 done
 
-# Build thumbnails and dirtree.txt
 cd "$incoming_dir"
-if [ "$AUTO" -eq 1 ]; then
-	cd "$incoming_dir/.."
-fi
-/usr/local/bin/build > /dev/null
 
-#for i in {1..10}; do
-	echo -e "\n${RED}========= ALL DONE =========${NC}\n"
-#done
+if [ ! -z "$AUTO" ]; then
+	cd "$incoming_dir/.."
+	/usr/local/bin/build
+fi
+
+echo -e " Start time: ${GREEN}${start_time}${NC}"
+echo -e "Finish time: ${GREEN}$(date '+%m-%d %H:%M:%S')${NC}"
+echo -e "\n${GREEN}========= ALL DONE =========${NC}"
+
+
