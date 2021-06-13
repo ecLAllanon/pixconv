@@ -4,8 +4,7 @@ mkdir `date +%Y-%m-%d`
 cd `date +%Y-%m-%d`
 tar -zvpcf etc.tgz /etc
 tar -zvpcf usr_local.tgz /usr/local
-tar -zvpcf opt_www.tgz --exclude='*.zip' --exclude='*.mp4' --exclude='*.jpg' --exclude='*.flv' --exclude='dirtree.txt' --exclude='insta' --exclude='pub' --exclude='txt' /opt/www
-tar -zvpcf root.tgz --exclude='.*' /root
+tar -zvpcf root.tgz --exclude='.*' --exclude='*.mp4' /root
 
 # Debian
 dpkg --get-selections > packages.install

@@ -1,0 +1,10 @@
+#!/bin/bash
+#
+
+if [ -z "$(pgrep -f 'pixconv.sh')" ]; then
+	cd /www/commandor/travels/.incoming
+	/usr/local/bin/pixconv.sh auto >> /opt/logs/processing.log
+	exit 0
+fi
+echo "Converting is already running..." >> /opt/logs/processing.log
+exit 0

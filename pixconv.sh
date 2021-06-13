@@ -21,6 +21,7 @@ NC='\033[0m' # No Color
 # cd /www/commandor/travels/.incoming
 
 AUTO="$1"
+NEED_IDX=""
 OIFS="$IFS"
 IFS=$'\n'
 incoming_dir=$(pwd)
@@ -30,8 +31,12 @@ clear -x
 # for dir in `find ./* -type d -print | grep -v pix | sort -r`; do
 for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	cd "$incoming_dir"
-	echo -e "\n========= ${GREEN}PROCESSING $dir${NC} =========  $(date '+%m-%d %H:%M:%S')\n"
+	echo -e "\n========= ${GREEN}PROCESSING${NC} --*[ ${GREEN}$dir${NC} ]*-- =========  ${GREEN}$(date '+%m-%d %H:%M:%S')${NC}\n"
 	cd "$dir"
+	
+	if [ -z "$(ls -A '.')" ]; then
+		continue
+	fi
 
 	# Extract all archives
 	rename -- 's/[^A-Za-z0-9._-]//g' "*.zip" 2> /dev/null
@@ -122,18 +127,22 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	mkdir -p res
 
 	# Convert videos
-	# Codecs: libvpx-vp9 libaom-av1 libx264 ][ MKV
+	# Codecs: libvpx-vp9 libaom-av1 libx265 libx264 ][ MP4 / MKV / WEBM
 
 # CRF 0-51, less = better
-#	    	-c:v libx264 -crf 19 -tune zerolatency -preset medium \
+#	    	-c:v libx264 -crf 20 -tune zerolatency -preset slow \
 
 # CRF 0-63, less = better
 #	    	-c:v libaom-av1 -crf 30 -b:v 0 -strict -2 \
 
+# CRF 0-??, less = better
+# 1. br 2000k:  -c:v libvpx-vp9 -b:v 2M -pass 1 -an \
+# 2. CRF:               -c:v libvpx-vp9 -b:v 0 -crf 30 -pass 1 -an \
+
 	find . -maxdepth 1 -type f -iname '*.mp4' -not -empty |
-	    parallel --nice -5 --halt now,fail=1 --eta -j15 "echo -e '\n\nprocessing {} ... started: $(date "+%H:%M:%S")' && \
+	    parallel --retries 3 --nice -5 --halt soon,fail=50% --eta -j15 "echo -e '\n\nprocessing {} ... started: $(date "+%H:%M:%S")' && \
 	    	(time ffmpeg -y -i '{}' \
-	    	-c:v libaom-av1 -crf 30 -b:v 0 -strict -2 \
+	    	-c:v libx264 -crf 20 -preset slow \
 	    	-vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' \
 	    	-c:a aac -b:a 128k 'res/{.}.mp4') 2>&1 2>'{/}'.log && \
 	    	touch -r '{}' 'res/{.}.mp4' && \
@@ -144,9 +153,9 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	rm -rf res
 
 	find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|avi|mpg|wmv|flv|mkv|vro)$" -not -empty |
-	    parallel --nice -5 --halt now,fail=1 --eta -j15 "echo -e '\n\nprocessing {} ... started: $(date "+%H:%M:%S")' && \
+	    parallel --retries 3 --nice -5 --halt soon,fail=50% --eta -j15 "echo -e '\n\nprocessing {} ... started: $(date "+%H:%M:%S")' && \
 	    	(time ffmpeg -y -i '{}' \
-	    	-c:v libaom-av1 -crf 30 -b:v 0 -strict -2 \
+	    	-c:v libx264 -crf 20 -preset slow \
 	    	-vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' \
 	    	-c:a aac -b:a 128k '{.}.mp4') 2>&1 >/dev/null 2>'{/}'.log && \
 	    	touch -r '{}' '{.}.mp4' && \
@@ -155,23 +164,26 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 
 
 	# Rescale and autorotate pix
-	mkdir -p pix
-	echo -e "\n=== ${GREEN}Rotating/rescaling${NC} images"
-	find . -maxdepth 1 -type f -iname '*.jpg' -not -empty |
-	    parallel --eta -j15 " exiftran -aip '{}' ; ffmpeg -y -i '{}' \
-	    	-vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' 'pix/{.}.jpg' 2> /dev/null && \
-	    	touch -r '{}' 'pix/{.}.jpg' || \
-	    	(echo -e '${RED}Recoding error${NC} --- file {}' && echo -e '$(pwd)/{}' >> /opt/www/FAILED.TXT && exit 1) && rm '{}' "
+	if [ ! -z "$(find . -maxdepth 1 -type f -iname '*.jpg' -not -empty)" ]; then
+		mkdir -p pix
+		echo -e "\n=== ${GREEN}Rotating/rescaling${NC} images"
+		find . -maxdepth 1 -type f -iname '*.jpg' -not -empty |
+		    parallel --eta -j15 " exiftran -aip '{}' ; ffmpeg -y -i '{}' \
+	    		-vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' 'pix/{.}.jpg' 2> /dev/null && \
+	    		touch -r '{}' 'pix/{.}.jpg' || \
+	    		(echo -e '${RED}Recoding error${NC} --- file {}' && echo -e '$(pwd)/{}' >> /opt/www/FAILED.TXT && exit 1) && rm '{}' "
 
-	# If we dont have pix - delete dir
-	cd pix
-	if [ ! -z "$(ls -A '.')" ]; then
-	  cd ..
-	else
-	  # No pixez found here
-	  echo -e '-- No pixz here'
-	  cd ..
-	  rm -rf pix
+		# If we dont have pix - delete dir
+		cd pix
+		if [ ! -z "$(ls -A '.')" ]; then
+		  cd ..
+		  NEED_IDX="y"
+		else
+		  # No pixez found here
+		  echo -e '-- No pixz here'
+		  cd ..
+		  rm -rf pix
+		fi
 	fi
 
 	# If we have some videos - make dir for pixz
@@ -181,6 +193,7 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	  rm -f ./*.THM
 	  rm -f ./*.BUP
 	  rm -f ./*.IFO
+	  NEED_IDX="y"
 	else
 	  # No videos found here
 	  echo -e '-- No videos here'
@@ -210,20 +223,23 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	#find . -maxdepth 1 -size 0 -print -delete ;
 
 	# Rename long numeric filenames 
-	for f in $(find . -maxdepth 1 -type f -regex "\./[0-9._-]*\..*" -print); do
-		bfile="$(basename $f)"
-		mv -n "${bfile}" "$(printf "%05d" $RANDOM).${bfile#*.}"
-	done
+	#for f in $(find . -maxdepth 1 -type f -regex "\./[0-9._-]*\..*" -print); do
+	#	bfile="$(basename $f)"
+	#	mv -n "${bfile}" "$(printf "%05d" $RANDOM).${bfile#*.}"
+	#done
 
 	# Move to processed dir to main gallery
-	if [ ! -z "$AUTO" ]; then
+	cur_dir=$(basename "$PWD")
+	if [ ! -z "$AUTO" ] && [ "$cur_dir" = ".incoming" ]; then
 		cur_dir=$(pwd)
-		if [ "$cur_dir" = "$incoming_dir" ]; then
+		if [ "$cur_dir" = "$incoming_dir" ] && [ ! -z "$(ls -A '.')" ]; then
 			echo -e "\n=== ${GREEN}Moving${NC} random trash to Incoming..."
-		    mv -f * "$incoming_dir/../Incoming/" 2> /dev/null
+			NEED_IDX="y"
+			mkdir -p "$incoming_dir/../Incoming/"
+		    mv -f * "$incoming_dir/../Incoming/"
 		    cd "$incoming_dir/../Incoming/"
-		    if [ ! -z "$(ls -A '.' | wc -l | awk -F"\t" '$NF>=50{print $1}')" ] || [ ! -z "$(ls -A '.' | wc -l | awk -F"\t" '$NF>=150{print $1}')" ]; then
-				cd ..
+		    if [ ! -z "$(ls -A '.' | wc -l | awk -F'\t' '$NF>=50{print $1}')" ] || [ ! -z "$(ls -A '.' | wc -l | awk -F'\t' '$NF>=150{print $1}')" ]; then
+				cd ".."
 				lastDir=$(find Incoming-* -maxdepth 0 -type d 2> /dev/null | tail -1 | cut -c 10-)
 				if [ -z "$lastDir" ]; then
 					echo -e "=== Incoming is overloaded, dumping trash to ${GREEN}Incoming-0001${NC}"
@@ -236,8 +252,9 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	#			mv -f Incoming "$(printf "Incoming-%05d" $RANDOM)" 2> /dev/null
 				mkdir -p Incoming
 		    fi
-		else
+		elif [ ! -z "$(ls -A '.')" ]; then
 			echo -e "\n=== ${GREEN}Moving${NC} processed ${GREEN}$dir${NC} to gallery ... $(date '+%m-%d %H:%M:%S')"
+			NEED_IDX="y"
 		    mv -f "../$dir" "$incoming_dir/.." 2> /dev/null
 		fi
 	fi            
@@ -245,10 +262,15 @@ done
 
 cd "$incoming_dir"
 
-if [ ! -z "$AUTO" ]; then
-	cd "$incoming_dir/.."
-	/usr/local/bin/build
+if [ ! -z "$AUTO" ] && [ ! -z "$NEED_IDX" ]; then
+	echo -e "=== ${GREEN}Building${NC} directory indexes...\n"
+	cur_dir=$(basename "$PWD")
+	if [ "$cur_dir" = ".incoming" ]; then
+		cd "$incoming_dir/.."
+	fi
+	/usr/local/bin/build > /opt/logs/last-build.log
 fi
+
 
 echo -e " Start time: ${GREEN}${start_time}${NC}"
 echo -e "Finish time: ${GREEN}$(date '+%m-%d %H:%M:%S')${NC}"
