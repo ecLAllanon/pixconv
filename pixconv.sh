@@ -163,6 +163,14 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	    	  (echo -e '${RED}Recoding error:${NC} {}\n' && echo -e '$(pwd)/{}' >> /opt/www/FAILED.TXT && exit 1) && rm '{}'" # && rm '{/}'.log"
 
 
+	# Convert audio files
+	if [ ! -z "$(ls -A '.' | grep .wma)" ]; then
+		echo -e "\n=== Converting ${GREEN}audio files${NC} to MP3"
+		for file in *.wma; do ffmpeg -i "${file}"  -acodec libmp3lame -ab 192k "${file/.wma/.mp3}"; done
+		rm -f *.wma
+		NEED_IDX="y"
+	fi
+
 	# Rescale and autorotate pix
 	if [ ! -z "$(find . -maxdepth 1 -type f -iname '*.jpg' -not -empty)" ]; then
 		mkdir -p pix
