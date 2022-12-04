@@ -20,7 +20,8 @@ NC='\033[0m' # No Color
 
 # cd /www/commandor/travels/.incoming
 
-AUTO="$1"
+#AUTO="$1"
+AUTO="auto"
 NEED_IDX=""
 OIFS="$IFS"
 IFS=$'\n'
@@ -29,7 +30,7 @@ start_time=$(date '+%m-%d %H:%M:%S')
 rm -rf res
 clear -x
 # for dir in `find ./* -type d -print | grep -v pix | sort -r`; do
-for dir in `find . -type d -print | grep -vx pix | sort -r`; do
+for dir in `find . -type d -print | grep -vx ./pix | grep -vx ./sav | sort -r`; do
 	cd "$incoming_dir"
 	echo -e "\n========= ${GREEN}PROCESSING${NC} --*[ ${GREEN}$dir${NC} ]*-- =========  ${GREEN}$(date '+%m-%d %H:%M:%S')${NC}\n"
 	cd "$dir"
@@ -57,7 +58,6 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	rm -f ./*.cbz
 	rm -f ./*.swf
 	rm -f ./*.srt
-	rm -f ./*.txt
 	rm -f ./*.log
 
 	echo -e "=== ${GREEN}Renaming...${NC}"
@@ -65,7 +65,7 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	/usr/local/bin/cyr2lat.sh *
 
 	# Remove all dangerous chars from filename
-	for i in $(find . -maxdepth 1 -print0 | perl -n0e 'chomp; print $_, "\n" if /[[:^ascii:][:cntrl:]]/'); do
+	for i in $(find . -maxdepth 1 -print0 | perl -n0e 'chomp; print $_, "\n" if /[[:^ascii:][:cntrl:]@)(]/'); do
 		rename -- 's/[^A-Za-z0-9._]/_/g' "$(basename $i)" 2> /dev/null
 	done
 
@@ -75,7 +75,7 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 #	done
 
 	# Remove leftovers with control chars
-	for i in $(find . -maxdepth 1 -regex '.*[^ -~].*' -print); do
+	for i in $(find . -maxdepth 1 -regex '.*[^ -~@].*' -print); do
 		rename -f -- 's/[^A-Za-z0-9._]/'$(printf %.3s $(echo $RANDOM))'/g' "$(basename $i)" 2> /dev/null
 	done
 
@@ -90,6 +90,7 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	# Rename other file formats
 	rename 's/\.bc!$/\.mpg/i' * 2> /dev/null
 	rename 's/\.dat$/\.mpg/i' * 2> /dev/null
+	rename 's/\.mts$/\.mpg/i' * 2> /dev/null
 	rename 's/\.vob$/\.mpg/i' * 2> /dev/null
 	rename 's/\.asf$/\.mpg/i' * 2> /dev/null
 	rename 's/\.3gp$/\.mpg/i' * 2> /dev/null
@@ -105,7 +106,7 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 	rename -f 's/\.jpe?g$/.jpg/i' * 2> /dev/null
 
 	# Get creation date and add it to filename
-	for i in $(find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|avi|mpg|wmv|flv|mkv|vro|mp4)$" -not -empty -printf "%f\n"); do
+	for i in $(find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|avi|mpg|wmv|flv|mkv|vro|mp4|txt)$" -not -empty -printf "%f\n"); do
 	    if [ "$put_date_to_filename" -eq 0 ] && [ "$put_year_to_filename" -eq 0 ]; then
 	        # No any dates in filename
 	        mydate=""
@@ -140,33 +141,33 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 # 2. CRF:               -c:v libvpx-vp9 -b:v 0 -crf 30 -pass 1 -an \
 
 	find . -maxdepth 1 -type f -iname '*.mp4' -not -empty |
-	    parallel --retries 3 --nice -5 --halt soon,fail=50% --eta -j15 "echo -e '\n\nprocessing {} ... started: $(date "+%H:%M:%S")' && \
+	   	parallel --retries 3 --nice -5 --halt soon,fail=50% --eta -j15 " \
 	    	(time ffmpeg -y -i '{}' \
-	    	-c:v libx264 -crf 20 -preset slow \
+	    	-c:v libx264 -crf 20 -preset slow -movflags faststart \
 	    	-vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' \
-	    	-c:a aac -b:a 128k 'res/{.}.mp4') 2>&1 2>'{/}'.log && \
+	    	-c:a aac -b:a 128k -ac 2 'res/{.}.mp4') 2>&1 >/dev/null 2>'{/}'.log && \
 	    	touch -r '{}' 'res/{.}.mp4' && \
-	    	echo -e '${GREEN}Done${NC}: {}' || \
-	    	  (echo -e '${RED}Recoding error:${NC} {}\n' && echo -e '$(pwd)/{}' >> /opt/www/FAILED.TXT && exit 1) && rm '{}'" # && rm '{/}'.log"
+	    	echo -e '${GREEN}Good MP4${NC} {}' || \
+	    	(echo -e '${RED}Recoding error MP4${NC} {}\n' && mv -n 'res/{.}.mp4' 'res/{.}-bad.mp4' && exit 1) && rm '{}' && rm '{/}'.log"
 
 	mv -n res/* ./ 2> /dev/null
 	rm -rf res
-
-	find . -maxdepth 1 -type f -regextype posix-egrep -iregex ".*\.(mov|avi|mpg|wmv|flv|mkv|vro)$" -not -empty |
-	    parallel --retries 3 --nice -5 --halt soon,fail=50% --eta -j15 "echo -e '\n\nprocessing {} ... started: $(date "+%H:%M:%S")' && \
+	
+	find . -maxdepth 1 -type f -regextype posix-egrep -iregex '.*\.(mov|avi|mpg|wmv|flv|mkv|vro)$' -not -empty |
+	    parallel --retries 3 --nice -5 --halt soon,fail=50% --eta -j15 " \
 	    	(time ffmpeg -y -i '{}' \
-	    	-c:v libx264 -crf 20 -preset slow \
+	    	-c:v libx264 -crf 20 -preset slow -movflags faststart \
 	    	-vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' \
-	    	-c:a aac -b:a 128k '{.}.mp4') 2>&1 >/dev/null 2>'{/}'.log && \
+	    	-c:a aac -b:a 128k -ac 2 '{.}.mp4') 2>&1 >/dev/null 2>'{/}'.log && \
 	    	touch -r '{}' '{.}.mp4' && \
-	    	echo -e '${GREEN}Done${NC}: {}' || \
-	    	  (echo -e '${RED}Recoding error:${NC} {}\n' && echo -e '$(pwd)/{}' >> /opt/www/FAILED.TXT && exit 1) && rm '{}'" # && rm '{/}'.log"
+	    	echo -e '${GREEN}Good MOV${NC} {}' || \
+	    	  (echo -e '${RED}Recoding error MOV${NC} {}\n' && mv -n '{.}.mp4' '{.}-bad.mp4' && exit 1) && rm '{}' && rm '{/}'.log"
 
 
 	# Convert audio files
 	if [ ! -z "$(ls -A '.' | grep .wma)" ]; then
 		echo -e "\n=== Converting ${GREEN}audio files${NC} to MP3"
-		for file in *.wma; do ffmpeg -i "${file}"  -acodec libmp3lame -ab 192k "${file/.wma/.mp3}"; done
+		for file in *.wma; do ffmpeg -i "${file}"  -acodec libmp3lame -ab 192k -ac 2 "${file/.wma/.mp3}"; done
 		rm -f *.wma
 		NEED_IDX="y"
 	fi
@@ -179,7 +180,7 @@ for dir in `find . -type d -print | grep -vx pix | sort -r`; do
 		    parallel --eta -j15 " exiftran -aip '{}' ; ffmpeg -y -i '{}' \
 	    		-vf scale='trunc(min(1\,min(1920/iw\,1920/ih))*iw/2)*2':'trunc(min(1\,min(1920/iw\,1920/ih))*ih/2)*2' 'pix/{.}.jpg' 2> /dev/null && \
 	    		touch -r '{}' 'pix/{.}.jpg' || \
-	    		(echo -e '${RED}Recoding error${NC} --- file {}' && echo -e '$(pwd)/{}' >> /opt/www/FAILED.TXT && exit 1) && rm '{}' "
+	    		(echo -e '${RED}Recoding error${NC} --- file {}' && exit 1) && rm '{}' "
 
 		# If we dont have pix - delete dir
 		cd pix
