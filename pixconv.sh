@@ -20,10 +20,10 @@ NC='\033[0m' # No Color
 
 # cd /www/commandor/travels/.incoming
 
-#AUTO="$1"
-AUTO="auto"
-NEED_IDX=""
-OIFS="$IFS"
+#AUTO='$1'
+AUTO=''
+NEED_IDX=''
+#OIFS="$IFS"
 IFS=$'\n'
 incoming_dir=$(pwd)
 start_time=$(date '+%m-%d %H:%M:%S')
@@ -148,7 +148,7 @@ for dir in `find . -type d -print | grep -vx ./pix | grep -vx ./sav | sort -r`; 
 	    	-c:a aac -b:a 128k -ac 2 'res/{.}.mp4') 2>&1 >/dev/null 2>'{/}'.log && \
 	    	touch -r '{}' 'res/{.}.mp4' && \
 	    	echo -e '${GREEN}Good MP4${NC} {}' || \
-	    	(echo -e '${RED}Recoding error MP4${NC} {}\n' && mv -n 'res/{.}.mp4' 'res/{.}-bad.mp4' && exit 1) && rm '{}' && rm '{/}'.log"
+	    	(echo -e '${RED}Recoding error MP4${NC} {}' && mkdir -p bad && mv -n '{}' ./bad && rm 'res/{.}.mp4' && exit 1) && rm '{}' && rm '{/}'.log"
 
 	mv -n res/* ./ 2> /dev/null
 	rm -rf res
@@ -161,7 +161,7 @@ for dir in `find . -type d -print | grep -vx ./pix | grep -vx ./sav | sort -r`; 
 	    	-c:a aac -b:a 128k -ac 2 '{.}.mp4') 2>&1 >/dev/null 2>'{/}'.log && \
 	    	touch -r '{}' '{.}.mp4' && \
 	    	echo -e '${GREEN}Good MOV${NC} {}' || \
-	    	  (echo -e '${RED}Recoding error MOV${NC} {}\n' && mv -n '{.}.mp4' '{.}-bad.mp4' && exit 1) && rm '{}' && rm '{/}'.log"
+            (echo -e '${RED}Recoding error MOV${NC} {}' && mkdir -p bad && mv -n '{}' ./bad && rm '{.}.mp4' && exit 1) && rm '{}' && rm '{/}'.log"
 
 
 	# Convert audio files
@@ -281,8 +281,8 @@ if [ ! -z "$AUTO" ] && [ ! -z "$NEED_IDX" ]; then
 fi
 
 
-echo -e " Start time: ${GREEN}${start_time}${NC}"
-echo -e "Finish time: ${GREEN}$(date '+%m-%d %H:%M:%S')${NC}"
+echo -e " Start time ${GREEN}${start_time}${NC}"
+echo -e "Finish time ${GREEN}$(date '+%m-%d %H:%M:%S')${NC}"
 echo -e "\n${GREEN}========= ALL DONE =========${NC}"
 
 
